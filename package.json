@@ -1,0 +1,21 @@
+{
+  "name": "cloud-run-sandbox-api",
+  "version": "1.0.0",
+  "description": "Secure ADK agent wrapping the Cloud Run Sandbox CLI in an ADK Web UI",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "tsc && node dist/server.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@google/adk": "^0.2.4",
+    "@google/adk-devtools": "^0.2.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  }
+}
