@@ -59,7 +59,8 @@ gcloud run deploy secure-coding-assistant \
   --region=${REGION} \
   --project=${PROJECT_ID} \
   --execution-environment=gen2 \
-  --no-invoker-iam-check \
+  --allow-unauthenticated \
+  --no-cpu-throttling \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION}
 ```
 
@@ -87,7 +88,8 @@ gcloud run deploy secure-coding-assistant \
   --region=${REGION} \
   --project=${PROJECT_ID} \
   --execution-environment=gen2 \
-  --no-invoker-iam-check \
+  --allow-unauthenticated \
+  --no-cpu-throttling \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION} \
   --set-secrets API_AUTH_TOKEN=api-auth-token:latest
 ```

@@ -71,7 +71,7 @@ const executeShellTool = new FunctionTool({
 export const rootAgent = new LlmAgent({
   name: 'secure_coding_assistant',
   description: 'ADK agent capable of writing, executing, and validating shell commands safely inside isolated local Cloud Run Sandboxes.',
-  model: 'gemini-2.5-flash', // Default high-velocity Gemini model
+  model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', // Fallback to gemini-2.5-flash if not specified
   instruction: 'You are a highly capable ADK agent. When users ask you to run calculations, examine directories, or test commands, ALWAYS generate and execute the command using the execute_shell_command tool before finalizing your response. Remember that the guest VM sandbox has a restricted empty PATH, so you MUST ALWAYS specify absolute binary paths for guest tools (e.g. use /bin/echo instead of echo, use /bin/ls instead of ls). Tell the user what command was run.',
   tools: [executeShellTool]
 });

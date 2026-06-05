@@ -1,6 +1,8 @@
 import * as http from 'http';
 import * as net from 'net';
 import { exec, spawn } from 'child_process';
+import * as fs from 'fs';
+import dns from 'dns';
 
 const PORT = 8080;
 const ADK_PORT = 8081;
@@ -8,16 +10,25 @@ const ADK_PORT = 8081;
 // Read the secure access token from environment variables (defaults to empty/disabled if not set)
 const API_AUTH_TOKEN = process.env.API_AUTH_TOKEN || '';
 
+// Startup Debug Tests
+console.log('[Gateway Startup Test] Starting DNS tests...');
+dns.resolve('google.com', (err, addresses) => {
+  console.log('[Gateway Startup Test] DNS google.com:', err ? err.message : addresses);
+});
+dns.resolve('us-west1-aiplatform.googleapis.com', (err, addresses) => {
+  console.log('[Gateway Startup Test] DNS Vertex AI:', err ? err.message : addresses);
+});
+
 if (API_AUTH_TOKEN) {
   console.log(`[Gateway Security] Token Authentication ACTIVE. Gateway locked behind token boundaries.`);
 } else {
   console.log(`[Gateway Security] WARNING: No API_AUTH_TOKEN set. Gateway operates in unauthenticated mode.`);
 }
 
-// 1. Spawning the background ADK DevTools Web UI Server on Port 8081
+// 1. Spawning the background ADK DevTools Web UI Server on Port 8081 immediately
 console.log(`[Gateway Startup] Launching background ADK Web Server on Port ${ADK_PORT}...`);
-const adkProcess = spawn('npx', [
-  'adk',
+const adkProcess = spawn(process.argv[0], [
+  './node_modules/@google/adk-devtools/dist/cli/cli.cjs',
   'web',
   './dist/agents',
   '--port',
@@ -25,15 +36,24 @@ const adkProcess = spawn('npx', [
   '--host',
   '127.0.0.1',
   '--allow_origins',
-  '*'
+  "'*'"
 ], {
   shell: true,
-  stdio: 'inherit'
+  stdio: ['ignore', 'pipe', 'pipe']
+});
+
+adkProcess.stdout?.on('data', (data) => {
+  console.log(`[ADK STDOUT] ${data.toString().trim()}`);
+});
+
+adkProcess.stderr?.on('data', (data) => {
+  console.error(`[ADK STDERR] ${data.toString().trim()}`);
 });
 
 adkProcess.on('error', (err) => {
   console.error('[Gateway ERROR] Failed to start background ADK server:', err);
 });
+
 
 // Helper: Parse cookie header string into key-value pairs
 function parseCookies(cookieStr: string): { [key: string]: string } {
@@ -96,8 +116,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const urlObj = new URL(req.url || '', 'http://localhost');
+  const queryToken = urlObj.searchParams.get('token');
+
   // Intercept the Direct Execute REST API Route
-  if (req.url === '/execute' && req.method === 'POST') {
+  if (urlObj.pathname === '/execute' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
@@ -127,9 +150,60 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Extract query parameters to inject cookies on dynamic UI page loads
-  const urlObj = new URL(req.url || '', 'http://localhost');
-  const queryToken = urlObj.searchParams.get('token');
+  // Debug Endpoint: ps
+  if (urlObj.pathname === '/debug/ps' && req.method === 'GET') {
+    console.log(`[Debug Exec] Running command: ps aux`);
+    exec('ps aux', (e, stdout, stderr) => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end(`STDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
+    });
+    return;
+  }
+
+  // Debug Endpoint: netstat
+  if (urlObj.pathname === '/debug/netstat' && req.method === 'GET') {
+    console.log(`[Debug Exec] Running command: netstat -an`);
+    exec('netstat -an', (e, stdout, stderr) => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end(`STDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
+    });
+    return;
+  }
+
+  // Debug Endpoint: adk-log
+  if (urlObj.pathname === '/debug/adk-log' && req.method === 'GET') {
+    console.log(`[Debug Exec] Reading log: /tmp/adk.log`);
+    try {
+      const content = fs.readFileSync('/tmp/adk.log', 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end(content);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Failed to read log: ${(err as Error).message}`);
+    }
+    return;
+  }
+
+  // Debug Endpoint: exec
+  if (urlObj.pathname === '/debug/exec' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body);
+        const cmd = payload.command || '';
+        console.log(`[Debug Exec] Running command: ${cmd}`);
+        exec(cmd, (e, stdout, stderr) => {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end(`STDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
+        });
+      } catch (err) {
+        res.writeHead(400);
+        res.end('Invalid JSON');
+      }
+    });
+    return;
+  }
 
   // Proxy standard HTTP/2 traffic straight to the background ADK DevTools server
   const proxyReq = http.request({
@@ -154,6 +228,27 @@ const server = http.createServer((req, res) => {
   });
 
   proxyReq.on('error', (e) => {
+    const err = e as any;
+    if (err.code === 'ECONNREFUSED') {
+      console.log(`[Gateway Proxy] ADK server not ready yet on port ${ADK_PORT}. Serving loading page.`);
+      
+      // Check if the client expects HTML (browser page load)
+      const acceptHeader = req.headers.accept || '';
+      if (acceptHeader.includes('text/html') || req.url === '/' || req.url?.startsWith('/dev-ui')) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(getLoadingHtml());
+        return;
+      }
+
+      // Otherwise, return a clean JSON response for API clients
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '2' });
+      res.end(JSON.stringify({
+        status: 'starting',
+        message: 'Sandbox assistant is booting up. Please retry in a few seconds.'
+      }));
+      return;
+    }
+
     console.error(`[Gateway Proxy HTTP Error]`, e);
     res.writeHead(502);
     res.end('Bad Gateway');
@@ -161,6 +256,87 @@ const server = http.createServer((req, res) => {
 
   req.pipe(proxyReq, { end: true });
 });
+
+// HTML Loading Template served during cold-start boot sequence
+function getLoadingHtml(): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Starting Sandbox Assistant...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Google Sans', 'Segoe UI', Arial, sans-serif;
+      background-color: #131314;
+      color: #e5e2e2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      text-align: center;
+      max-width: 400px;
+      padding: 20px;
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border-left-color: #8ab4f8;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 24px auto;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 400;
+      margin: 0 0 16px 0;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+    p {
+      font-size: 14px;
+      color: #9e9e9e;
+      line-height: 1.6;
+      margin: 0 0 28px 0;
+    }
+    .status {
+      font-size: 12px;
+      color: #8ab4f8;
+      background-color: rgba(138, 180, 248, 0.08);
+      padding: 8px 18px;
+      border-radius: 20px;
+      display: inline-block;
+      border: 1px solid rgba(138, 180, 248, 0.15);
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <script>
+    // Automatically check back by reloading the page every 2 seconds
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>Starting Sandbox Assistant</h1>
+    <p>We are provisioning your secure, sandboxed execution environment. This will only take a few seconds.</p>
+    <div class="status">Booting environment...</div>
+  </div>
+</body>
+</html>
+  `;
+}
+
 
 // 3. Native WebSocket Proxying Tunnel
 // Intercepts connection upgrades on port 8080 and tunnels TCP socket streams straight to port 8081,
