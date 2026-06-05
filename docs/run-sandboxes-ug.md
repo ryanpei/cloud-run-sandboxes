@@ -44,7 +44,7 @@ gcloud run deploy secure-coding-assistant \
 
 ## Security Configuration (Optional)
 
-Lock the container behind Bearer Token Authentication by setting `API_AUTH_TOKEN` during deployment:
+Lock the container behind Bearer Token Authentication by using an access token stored in Secret Manager:
 
 ```bash
 # Create a secret to store your access token
@@ -85,7 +85,7 @@ To execute Python scripts directly inside the cloud sandbox using the workstatio
 
 ```bash
 # Execute a custom Python script
-npx tsx client/client.ts https://secure-coding-assistant-YOUR_PROJECT.us-west1.run.app client/example.py
+npx tsx client/client.ts <SERVICE_URL> client/example.py
 ```
 
 ---
