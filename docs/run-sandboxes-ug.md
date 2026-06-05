@@ -47,8 +47,28 @@ gcloud run deploy secure-coding-assistant \
 Lock the container behind Bearer Token Authentication by setting `API_AUTH_TOKEN` during deployment:
 
 ```bash
-# Add token env var to deploy command
---set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},API_AUTH_TOKEN="your-token"
+# Create a secret to store your access token
+gcloud secrets create api-auth-token --replication-policy="automatic"
+
+export API_AUTH_TOKEN=$(gcloud auth print-access-token)
+
+echo -n "$API_AUTH_TOKEN" | gcloud secrets versions add api-auth-token --data-file=-
+
+PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
+
+gcloud secrets add-iam-policy-binding api-auth-token \
+ --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+ --role="roles/secretmanager.secretAccessor" \
+ --project=${PROJECT_ID}
+
+gcloud run deploy secure-coding-assistant \
+  --image=gcr.io/${PROJECT_ID}/sandbox-assistant:latest \
+  --region=${REGION} \
+  --project=${PROJECT_ID} \
+  --execution-environment=gen2 \
+  --no-invoker-iam-check \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION} \
+  --set-secrets API_AUTH_TOKEN=api-auth-token:latest
 ```
 
 *   **Browser UI:** Load the chatbot appending the query token:
