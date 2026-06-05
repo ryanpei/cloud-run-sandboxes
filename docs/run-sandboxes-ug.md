@@ -50,7 +50,7 @@ Lock the container behind Bearer Token Authentication by using an access token s
 # Create a secret to store your access token
 gcloud secrets create api-auth-token --replication-policy="automatic"
 
-export API_AUTH_TOKEN=$(gcloud auth print-access-token)
+export API_AUTH_TOKEN=$(openssl rand -hex 32)
 
 echo -n "$API_AUTH_TOKEN" | gcloud secrets versions add api-auth-token --data-file=-
 
