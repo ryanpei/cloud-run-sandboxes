@@ -120,8 +120,8 @@ Run the client script to execute code inside the cloud sandbox:
 
 ```bash
 # Execute default script
-npx tsx client/client.ts https://secure-coding-assistant-YOUR_PROJECT_NUMBER.YOUR_REGION.run.app
+npx tsx client/client.ts <SERVICE_URL>
 
 # Execute a custom Python file
-npx tsx client/client.ts https://secure-coding-assistant-YOUR_PROJECT_NUMBER.YOUR_REGION.run.app client/example.py
+npx tsx client/client.ts <SERVICE_URL> client/example.py
 ```
