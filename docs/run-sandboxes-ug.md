@@ -30,14 +30,13 @@ gcloud builds submit --tag gcr.io/${PROJECT_ID}/sandbox-assistant:latest --proje
 
 ### 2. Deploy to Cloud Run
 
-Deploy the container using the second-generation (`gen2`) execution environment to enable the sandbox mounting socket:
+Deploy the container using the sandbox-launcher flag to enable the sandbox mounting socket:
 ```bash
 gcloud beta run deploy secure-coding-assistant \
   --image=gcr.io/${PROJECT_ID}/sandbox-assistant:latest \
   --region=${REGION} \
   --project=${PROJECT_ID} \
   --sandbox-launcher \
-  --execution-environment=gen2 \
   --allow-unauthenticated \
   --no-cpu-throttling \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION}
@@ -69,7 +68,6 @@ gcloud beta run deploy secure-coding-assistant \
   --region=${REGION} \
   --project=${PROJECT_ID} \
   --sandbox-launcher \
-  --execution-environment=gen2 \
   --allow-unauthenticated \
   --no-cpu-throttling \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION} \
