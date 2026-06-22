@@ -89,7 +89,6 @@ gcloud beta run deploy secure-coding-assistant \
   --image=gcr.io/${PROJECT_ID}/sandbox-assistant:latest \
   --region=${REGION} \
   --project=${PROJECT_ID} \
-  --execution-environment=gen2 \
   --sandbox-launcher \
   --allow-unauthenticated \
   --no-cpu-throttling \
