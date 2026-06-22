@@ -49,7 +49,7 @@ gcloud services enable --project=${PROJECT_ID} \
 ### 2. Build and Deploy
 Ensure gcloud is up to date (`gcloud components update`).
 
-Submit the build to Cloud Build and deploy the service to Cloud Run with the second-generation (`gen2`) execution environment and the sandbox launcher flag enabled (`--sandbox-launcher`):
+Submit the build to Cloud Build and deploy the service to Cloud Run with the sandbox launcher flag enabled (`--sandbox-launcher`):
 
 ```bash
 # Build container image
@@ -61,7 +61,6 @@ gcloud beta run deploy secure-coding-assistant \
   --region=${REGION} \
   --project=${PROJECT_ID} \
   --sandbox-launcher \
-  --execution-environment=gen2 \
   --allow-unauthenticated \
   --no-cpu-throttling \
   --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=1,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION}
