@@ -32,10 +32,11 @@ gcloud builds submit --tag gcr.io/${PROJECT_ID}/sandbox-assistant:latest --proje
 
 Deploy the container using the second-generation (`gen2`) execution environment to enable the sandbox mounting socket:
 ```bash
-gcloud run deploy secure-coding-assistant \
+gcloud beta run deploy secure-coding-assistant \
   --image=gcr.io/${PROJECT_ID}/sandbox-assistant:latest \
   --region=${REGION} \
   --project=${PROJECT_ID} \
+  --sandbox-launcher \
   --execution-environment=gen2 \
   --allow-unauthenticated \
   --no-cpu-throttling \
@@ -63,10 +64,11 @@ gcloud secrets add-iam-policy-binding api-auth-token \
  --role="roles/secretmanager.secretAccessor" \
  --project=${PROJECT_ID}
 
-gcloud run deploy secure-coding-assistant \
+gcloud beta run deploy secure-coding-assistant \
   --image=gcr.io/${PROJECT_ID}/sandbox-assistant:latest \
   --region=${REGION} \
   --project=${PROJECT_ID} \
+  --sandbox-launcher \
   --execution-environment=gen2 \
   --allow-unauthenticated \
   --no-cpu-throttling \
